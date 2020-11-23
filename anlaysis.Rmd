@@ -1,0 +1,145 @@
+---
+title: "AMS 572 Final Project"
+author: "Branden Ciranni & Ashler Herrick"
+date: "December 01, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Analysis of Diabetes Data
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+
+data <- read.csv("./data/diabetes.csv", header = TRUE)
+head(data)
+```
+
+We add an additonal field to this data for classification purposes. It is taken as a diagnosis of diabetes if the "Glycosated Hemoglobin" measurement `glyhb >= 7.0`. This will be assumed to be the case for this analysis.
+
+We also add the ratio `waist_hip_ratio` = $\frac{waist}{hip}$.
+```{r}
+data <- transform(data, has_diabetes = glyhb >= 7.0, wh_ratio = waist/hip)
+```
+
+### Diabetes vs Not Diabetes
+```{r}
+ggplot(data, aes(x=has_diabetes)) + 
+  geom_bar(aes(fill=has_diabetes))
+```
+
+We observe that we have an unbalanced dataset, with far more study participants that are testing negative for diabetes, than positive. We will drop the rows which have null values for the diabetes classification.
+
+```{r}
+data <- filter(data, !is.na(has_diabetes))
+```
+
+### Stabilized Glucose, segmented by Diabetes Diagnosis
+Analyze the effect of stabilized glucose level on Diabetes Diagnosis. 
+```{r}
+ggplot(data, aes(x=has_diabetes, y=stab.glu)) +
+  geom_violin(aes(fill=factor(has_diabetes)))
+```
+
+We observe a much wider spread in participants with diabetes than those without. There are, however, several very high outliers in the non-diabetic case. May not be an accurate predictor.
+
+### Waist Hip Ratio, segmented by Diabetes Diagnosis
+Analyze the effect of `wh_ratio` on Diabetes Diagnosis.
+
+```{r}
+ggplot(data, aes(x=has_diabetes, y=wh_ratio, fill=has_diabetes)) +
+  geom_violin()
+```
+
+Analyze Missing Values
+
+```{r}
+ggplot(data, aes(is.na(wh_ratio))) + geom_bar()
+```
+
+Impute the missing values as the average.
+
+The density plot suggests that the mean waist hip ratio is likely to be greater in participants with diabetes.
+
+```{r}
+wh_data <- data %>%
+            filter(!is.na(wh_ratio)) %>%
+            group_by(has_diabetes) %>%
+            summarize(mean = mean(wh_ratio),
+                      var = var(wh_ratio),
+                      n = n())
+
+wh_data
+```
+
+Use a t-test to test whether there is a significant difference between the means. We do not assume equal variances between the samples.
+
+First, the data is prepared.
+
+```{r}
+diabetes_pos <- data %>% filter(has_diabetes)
+diabetes_neg <- data %>% filter(!has_diabetes)
+
+wh_pos <- diabetes_pos$wh_ratio
+wh_neg <- diabetes_neg$wh_ratio
+```
+
+Test for normality
+
+```{r}
+shapiro.test(wh_pos)
+qqnorm(wh_pos)
+```
+
+```{r}
+shapiro.test(wh_neg)
+qqnorm(wh_neg)
+```
+
+By the above Shapiro-Wilk Tests, we can assume normality in the data with 95% confidence.
+
+```{r}
+t.test(wh_pos, wh_neg)
+```
+
+There is a statistically significant difference between the waist hip ratio in participants with diabetes and without diabetes. 
+
+## Testing Gender Proportion with Diabetes
+
+```{r}
+gender_prop <- data %>%
+                filter(!is.na(gender)) %>%
+                group_by(gender) %>%
+                summarize(n_diabetes = sum(has_diabetes),
+                          n_total = n())
+
+gender_prop
+```
+
+```{r}
+prop.test(gender_prop$n_diabetes, gender_prop$n_total)
+```
+
+We conclude that there is no statistical difference between genders in diabetes diagnosis.
+
+## Analysis of Multifactor Experiment 
+
+```{r}
+#I defined some new predictors, waist/hip ratio, weight/height ratio, and sum of upper and lower blood pressures
+data$waist_hip <- with(data, waist/hip)
+data$weight_height <- with(data, weight/height)
+data$bpsum <- with(data, bp.1s+bp.1d)
+fit <- lm(glyhb ~ chol + stab.glu + ratio + age + weight + bp.1s + bp.1d + waist_hip, data=data)
+coefficients(fit)
+confint(fit, level=.95)
+anova(fit)
+layout(matrix(c(1,2,3,4),2,2)) # optional 4 graphs/page
+plot(fit)
+#The coefficients for the intercept and waist_hip ratio are highest, but also have the most variance.
+#Looking at the anova table the p-values are low. According to that, the best predictor is stable glucose.
+#I might instead try a stepwise regression, or a lasso regression. Let me know what you think.
+```
