@@ -12,8 +12,11 @@ knitr::opts_chunk$set(echo = TRUE)
 # Analysis of Diabetes Data
 
 ```{r message=FALSE, warning=FALSE}
-library(ggplot2)
-library(dplyr)
+# Library Requirements
+source("libraries.R")
+
+# Utility Functions, in separate script for neatness
+source("utilities.R")
 
 data <- read.csv("./data/diabetes.csv", header = TRUE)
 head(data)
@@ -34,6 +37,14 @@ ggplot(data, aes(x=has_diabetes)) +
 
 We observe that we have an unbalanced dataset, with far more study participants that are testing negative for diabetes, than positive. We will drop the rows which have null values for the diabetes classification.
 
+### Analysis of Null Values
+
+```{r}
+
+count_null(data)%chol
+
+```
+
 ```{r}
 data <- filter(data, !is.na(has_diabetes))
 ```
@@ -52,7 +63,8 @@ Analyze the effect of `wh_ratio` on Diabetes Diagnosis.
 
 ```{r}
 ggplot(data, aes(x=has_diabetes, y=wh_ratio, fill=has_diabetes)) +
-  geom_violin()
+  geom_violin() +
+  geom_boxplot(width=0.1)
 ```
 
 Analyze Missing Values
