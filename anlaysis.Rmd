@@ -40,15 +40,53 @@ We observe that we have an unbalanced dataset, with far more study participants 
 ### Analysis of Null Values
 
 ```{r}
+# First, mutate dataframe to change empty strings to NA
+data <- data %>% mutate_if(is.character, list(~na_if(.,""))) 
+
+# Then, use the count_null function in our utilities script
 count_null(data)
 ```
 
 We observe that there are a large number of null values in the `bp.2s` and `bp.2d` columns. We otherwise see a very low number of null values. We can discard these two columns given that $65\%$ of the data does not have values.
 
+```{r}
+data <- data %>% select(-c('bp.2s', 'bp.2d'))
+```
+
 Because Our Analysis Will focus on the indicators of diabetes, we will exclude those rows which have null values for `glyhb`, and thus, our indicator variable `has_diabetes`.
 
 ```{r}
 data <- filter(data, !is.na(has_diabetes))
+```
+
+Map categorical value in `frame` to ordinal data type. Levels are as follows: `r unique(data$frame)`
+
+```{r}
+unique(data$frame)
+```
+
+```{r}
+# Use our Utility function in `utilities.R` to map the categorical, but ordinal string values to
+# numerical integer values so we may include them in the correlation analysis
+data$frame <- cat_to_ord(data, "frame", c("small", "medium", "large"))
+```
+
+### Calculate Pearson's Correlation Coefficient between all variables
+
+```{r}
+ggcorr(data)
+```
+
+We interestingly see a strong correlation between the Stabilized Glucose Level and Glycosated Hemoglobin Level, our indicator for diabetes. We also notice a somewhat positive correlation for other factors above. We also notice a correlation between features in `weight`, `waist`, and `hip` measurements. This naturally makes sense.
+
+Let us examine some interesting features more closely, colored by diabetes diagnosis:
+
+```{r message=FALSE, warning=FALSE}
+ggpairs(data, columns = c("glyhb", "waist", "weight", "stab.glu"), title = "Bivariate Analysis of Diabetes Features", upper = list(continuous = wrap("cor", size = 3)),
+    lower = list(continuous = wrap("smooth",
+        alpha = 0.7,
+        size = 0.3)),
+    mapping = aes(color = has_diabetes))
 ```
 
 ### Stabilized Glucose, segmented by Diabetes Diagnosis
@@ -58,7 +96,9 @@ ggplot(data, aes(x=has_diabetes, y=stab.glu)) +
   geom_violin(aes(fill=factor(has_diabetes)))
 ```
 
-We observe a much wider spread in participants with diabetes than those without. There are, however, several very high outliers in the non-diabetic case. May not be an accurate predictor.
+We observe a much wider spread in participants with diabetes than those without. There are, however, several very high outliers in the non-diabetic case and there is quite a bit of variation. May not be an accurate predictor. We can perform an ANOVA test to analyze the effect of the variance of this variable.
+
+
 
 ### Waist Hip Ratio, segmented by Diabetes Diagnosis
 Analyze the effect of `wh_ratio` on Diabetes Diagnosis.

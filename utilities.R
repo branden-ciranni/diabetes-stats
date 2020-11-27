@@ -19,3 +19,14 @@ plot_missing_values <- function(df) {
   return (null.plot)
 }
 
+# transform categorical to ordinal
+# Inputs:
+#   df  -- data.frame
+#   c   -- column to modify
+#   ord -- ordered list of values in increasing magnitude
+cat_to_ord <- function(df, c, ord) {
+  h = hash(ord, c(1:length(ord)))
+  h['NA'] = NA
+  return (apply(df[c], 1, function(x) h[[x]]))
+}
+
