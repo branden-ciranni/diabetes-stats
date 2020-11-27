@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Analysis of Diabetes Data
 
 ```{r message=FALSE, warning=FALSE}
-# Library Requirements
+# Library Requirements - Separate file to keep things neat.
 source("libraries.R")
 
 # Utility Functions, in separate script for neatness
