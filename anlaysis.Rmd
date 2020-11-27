@@ -40,10 +40,12 @@ We observe that we have an unbalanced dataset, with far more study participants 
 ### Analysis of Null Values
 
 ```{r}
-
-count_null(data)%chol
-
+count_null(data)
 ```
+
+We observe that there are a large number of null values in the `bp.2s` and `bp.2d` columns. We otherwise see a very low number of null values. We can discard these two columns given that $65\%$ of the data does not have values.
+
+Because Our Analysis Will focus on the indicators of diabetes, we will exclude those rows which have null values for `glyhb`, and thus, our indicator variable `has_diabetes`.
 
 ```{r}
 data <- filter(data, !is.na(has_diabetes))
@@ -66,14 +68,6 @@ ggplot(data, aes(x=has_diabetes, y=wh_ratio, fill=has_diabetes)) +
   geom_violin() +
   geom_boxplot(width=0.1)
 ```
-
-Analyze Missing Values
-
-```{r}
-ggplot(data, aes(is.na(wh_ratio))) + geom_bar()
-```
-
-Impute the missing values as the average.
 
 The density plot suggests that the mean waist hip ratio is likely to be greater in participants with diabetes.
 
@@ -138,7 +132,7 @@ prop.test(gender_prop$n_diabetes, gender_prop$n_total)
 
 We conclude that there is no statistical difference between genders in diabetes diagnosis.
 
-## Analysis of Multifactor Experiment 
+## Multiple Linear Regression
 
 ```{r}
 #I defined some new predictors, waist/hip ratio, weight/height ratio, and sum of upper and lower blood pressures
