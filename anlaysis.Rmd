@@ -22,12 +22,21 @@ data <- read.csv("./data/diabetes.csv", header = TRUE)
 head(data)
 ```
 
+```{r}
+unique(data$location)
+```
+
 We add an additonal field to this data for classification purposes. It is taken as a diagnosis of diabetes if the "Glycosated Hemoglobin" measurement `glyhb >= 7.0`. This will be assumed to be the case for this analysis.
 
 We also add the ratio `waist_hip_ratio` = $\frac{waist}{hip}$.
 
 ```{r}
 data <- transform(data, has_diabetes = glyhb >= 7.0, wh_ratio = waist/hip)
+```
+
+```{r}
+data %>% group_by(has_diabetes) %>%
+          count()
 ```
 
 ### Diabetes vs Not Diabetes
@@ -110,31 +119,6 @@ The new Unique values are shown here:
 unique(data$frame)
 ```
 
-### Calculate Kendall's Correlation Coefficient between all variables
-We see above in the data exploration that some variables have a very large variance, while others have a much tighter distribution. The best example of this is stabilized glucose, `stab.glu`, which shows a large number of outliers in participants without diabetes.
-
-Additionally, the data is not guaranteed to be normal.
-
-As Kendall's coefficient is less sensitive to outliers and does not require normality or equality of variance, we use it over Pearson's.
-
-
-```{r}
-ggcorr(data, method = c("pairwise", "kendall"))
-```
-
-We see the strongest correlations between obviously correlated features such as waist, weight, and hip. We also see a moderate correlation between the Stabilized Glucose Level and Glycosated Hemoglobin Level, our indicator for diabetes. We also notice a somewhat positive correlation to `glyhb` for other factors above.
-
-Let us examine some interesting features more closely, colored by diabetes diagnosis:
-
-```{r message=FALSE, warning=FALSE}
-ggpairs(data, 
-        columns = c("glyhb", "waist", "wh_ratio", "stab.glu"), 
-        title = "Pairwise Analysis of Diabetes Features", 
-        upper = list(continuous = wrap("cor", method = 'kendall', size = 3)),
-        lower = list(continuous = wrap("smooth", alpha = 0.5, size = 0.3)),
-        mapping = aes(color = has_diabetes, alpha=0.5))
-```
-
 ### Waist Hip Ratio, segmented by Diabetes Diagnosis
 Analyze the effect of `wh_ratio` on Diabetes Diagnosis.
 
@@ -174,8 +158,10 @@ wh_neg <- diabetes_neg$wh_ratio
 Testing the data corresponding to positive diabetes test (`has_diabetes = TRUE`) at $\alpha = 0.05$.
 
 ```{r}
+
 shapiro.test(wh_pos)
-qqnorm(wh_pos)
+qqnorm(wh_pos, main="Waist/Hip Ratio (Diabetes Positive)")
+qqline(wh_pos, col='red')
 ```
 
 We see $p > 0.05$, thus we cannot reject the normality assumption.
@@ -184,7 +170,8 @@ Testing the data corresponding to negative diabetes test. (`has_diabetes = FALSE
 
 ```{r}
 shapiro.test(wh_neg)
-qqnorm(wh_neg)
+qqnorm(wh_neg, main="Waist/Hip Ratio (Diabetes Negative)")
+qqline(wh_neg, col='red')
 ```
 
 Likewise, we see $p > 0.05$, and cannot reject the normality assumption. By the above Shapiro-Wilk Tests, we can assume normality in the data with $95\%$ confidence. 
@@ -203,6 +190,31 @@ t.test(wh_pos, wh_neg, var.equal = TRUE)
 
 Thus, since $p < 0.05$, there is a statistically significant difference between the waist hip ratio in participants with diabetes and without diabetes.
 
+### Calculate Kendall's Correlation Coefficient between all variables
+We see above in the data exploration that some variables have a very large variance, while others have a much tighter distribution. The best example of this is stabilized glucose, `stab.glu`, which shows a large number of outliers in participants without diabetes.
+
+Additionally, the data is not guaranteed to be normal.
+
+As Kendall's coefficient is less sensitive to outliers and does not require normality or equality of variance, we use it over Pearson's.
+
+
+```{r}
+ggcorr(data, method = c("pairwise", "kendall"))
+```
+
+We see the strongest correlations between obviously correlated features such as waist, weight, and hip. We also see a moderate correlation between the Stabilized Glucose Level and Glycosated Hemoglobin Level, our indicator for diabetes. We also notice a somewhat positive correlation to `glyhb` for other factors above.
+
+Let us examine some interesting features more closely, colored by diabetes diagnosis:
+
+```{r message=FALSE, warning=FALSE}
+ggpairs(data, 
+        columns = c("glyhb", "waist", "wh_ratio", "stab.glu"), 
+        title = "Pairwise Analysis of Diabetes Features", 
+        upper = list(continuous = wrap("cor", method = 'kendall', size = 3)),
+        lower = list(continuous = wrap("smooth", alpha = 0.5, size = 0.3)),
+        mapping = aes(color = has_diabetes, alpha=0.5))
+```
+
 ##Stepwise Logistic Regression to find the best predictors
 ```{r}
 data$weight_height_ratio <- with(data, weight/height)
@@ -212,24 +224,30 @@ train<-data[dt,]
 test<-data[-dt,]
 no.na.train <- na.omit(train)
 no.na.test <- na.omit(test)
-logistic_model <- glm(has_diabetes ~ stab.glu + chol + hdl + ratio + weight_height_ratio + wh_ratio + age,data = no.na.train, family = binomial) %>%
+logistic_model <- glm(has_diabetes ~ stab.glu + chol + hdl + weight_height_ratio + wh_ratio + age,data = no.na.train, family = binomial) %>%
   stepAIC(trace = TRUE, direction = 'backward')
 summary(logistic_model)
 ```
+We can calculate the variance inflation factor, or VIF, to measure the multicollinearity of each predictor. VIF is bounded below by one and unbounded above.
+```{r}
+vif(logistic_model)
 
-The stepwise logistic regression with the missing values removed finds that stable glucose and cholesterol are the the only good predictors of diabetes.
+```
+The stepwise logistic regression with the missing values removed finds that the best model is has the predictors stable glucose, cholesterol, weight/height ratio and age.
 ```{r}
 exp(coef(logistic_model))
 probabilities <- logistic_model %>% predict(no.na.test, type = "response")
 head(probabilities)
 ```
 ```{r}
-predicted.classes <- ifelse(probabilities > 0.8, TRUE, FALSE)
+predicted.classes <- ifelse(probabilities > 0.10, TRUE, FALSE)
 head(predicted.classes)
 ```
 ```{r}
 mean(predicted.classes == no.na.test$has_diabetes)
+mean(predicted.classes == no.na.test$has_diabetes & no.na.test$has_diabetes == TRUE)/mean(no.na.test$has_diabetes == TRUE)
 ```
+The first number is the overall classification rate of the model, and the second number is the observed power of the classifier i.e. the proportion of case in which the model identified diabetes, given diabetes was present. The probability of a type two error, or false negative, is one minus the power of the test.
 
 ```{r}
 no.na.train %>%
@@ -242,7 +260,9 @@ no.na.train %>%
     x = "Stable Glucose",
     y = "Estimated Probability of Diabetes"
   )
+
 ```
+
 ```{r}
 no.na.train %>%
   mutate(prob = ifelse(has_diabetes == TRUE,1,0)) %>%
@@ -256,18 +276,51 @@ no.na.train %>%
   )
 ```
 
+```{r}
+no.na.train %>%
+  mutate(prob = ifelse(has_diabetes == TRUE,1,0)) %>%
+  ggplot(aes(age,prob)) +
+  geom_point(alpha =0.2) + 
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
+  labs(
+    title = "Logistic Regression Model",
+    x = "Age",
+    y = "Estimated Probability of Diabetes"
+  )
+```
+
+```{r}
+no.na.train %>%
+  mutate(prob = ifelse(has_diabetes == TRUE,1,0)) %>%
+  ggplot(aes(weight_height_ratio,prob)) +
+  geom_point(alpha =0.2) + 
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
+  labs(
+    title = "Logistic Regression Model",
+    x = "Weight/Height Ratio",
+    y = "Estimated Probability of Diabetes"
+  )
+```
+The plots give the estimated probability of diabetes with respect to each variable.
+
+
 ##Effect of Missing values
 If we fit the model to the original train data with 20% of the data removed, we obtain a slightly different model.
 ```{r}
 set.seed(123)
 dt = sort(sample(nrow(no.na.train), nrow(no.na.train)*.8))
 missing_train<-data[dt,]
-logistic_model_missing <- glm(has_diabetes ~ stab.glu + chol, data = missing_train, family = binomial)
+logistic_model_missing <- glm(has_diabetes ~ stab.glu + chol + age + weight_height_ratio, data = missing_train, family = binomial)
 summary(logistic_model_missing)
 ```
 If we randomly remove the data we see that the fit is improved. This makes sense because there is less variation, and the model fit can be better fit to the data. However, this does not actually mean that the model is better, only that it is a better fit for the data. 
 ```{r}
-predicted.classes <- ifelse(probabilities > 0.8, TRUE, FALSE)
-mean(predicted.classes == no.na.test$has_diabetes)
+probabilities_missing <- logistic_model_missing %>% predict(no.na.test, type = "response")
+head(probabilities_missing)
 ```
-We see that the efficacy of the model is the same on the training set.
+```{r}
+predicted.classes.missing <- ifelse(probabilities_missing > 0.10, TRUE, FALSE)
+mean(predicted.classes.missing == no.na.test$has_diabetes)
+mean(predicted.classes.missing == no.na.test$has_diabetes & no.na.test$has_diabetes == TRUE)/mean(no.na.test$has_diabetes == TRUE)
+```
+The tests were done on the same dataset. we can see that both the power and the overall classification rate are lower when we train the model on a smaller dataset, i.e. when we are dealing with missing values.
