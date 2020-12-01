@@ -10,15 +10,6 @@ count_null <- function(df) {
   return (df.null %>% arrange(desc(null.perc)))
 }
 
-
-# plot percentage graph of missing values
-plot_missing_values <- function(df) {
-  df.null = count_null(df)
-  null.plot <- ggplot(df.null) + 
-                geom_col(aes(x=reorder(feature, desc(null.perc)), y=null.perc))
-  return (null.plot)
-}
-
 # transform categorical to ordinal
 # Inputs:
 #   df  -- data.frame
