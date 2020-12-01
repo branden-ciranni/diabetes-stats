@@ -1,6 +1,8 @@
 # diabetes-stats
 Statistical Analysis of Diabetes data from Vanderbilt Biostatistics
 
+Research Report found in `Ciranni_Herrick_Final_Project.pdf`
+
 Statistical Analysis found in `analysis.Rmd`
 - this is an R Markdown Notebook. Please open in R-Studio, or another application in which you can view such a notebook.
 - there are many diagrams that assist in the understanding of the data, and provide additional context for the analysis.
