@@ -1,5 +1,5 @@
 # diabetes-stats
-Statistical Analysis of Diabetes data from Vanderbilt Biostatistics
+Statistical Analysis to Determine Early Indicators of Diabetes
 
 Research Report found in `Ciranni_Herrick_Final_Project.pdf`
 
@@ -18,3 +18,5 @@ Data Summary in `data_summary.html`
 
 `utilities.R`
 - Some utility functions used in the analysis, kept out of the main code for cleanliness.
+
+Data Source: Vanderbilt Biostatistics
